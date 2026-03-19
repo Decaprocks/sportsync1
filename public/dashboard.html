@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SportSync Player Dashboard – Track your stats, matches, and bookings.">
+    <title>SportSync – Player Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="/dashboard" class="navbar-brand">
+            <span class="brand-icon">🏟️</span> SportSync
+        </a>
+        <div class="navbar-nav" id="main-nav"></div>
+        <div class="navbar-user" id="user-section"></div>
+    </nav>
+
+    <div class="main-content">
+        <!-- Page Header -->
+        <div class="page-header animate-in">
+            <div>
+                <h1>Welcome, <span class="gradient-text" id="player-name">Player</span></h1>
+                <p class="page-subtitle">Here's your athletic performance overview</p>
+            </div>
+            <div>
+                <a href="/find-match" class="btn btn-primary">⚔️ Find Match</a>
+                <a href="/book-venue" class="btn btn-secondary">🏟️ Book Venue</a>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stat-grid" id="stats-grid">
+            <div class="stat-card animate-in delay-1">
+                <div class="stat-icon blue">📊</div>
+                <div class="stat-info">
+                    <h3 id="stat-rating">--</h3>
+                    <p>Skill Rating</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-2">
+                <div class="stat-icon green">🏆</div>
+                <div class="stat-info">
+                    <h3 id="stat-wins">--</h3>
+                    <p>Wins</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-3">
+                <div class="stat-icon red">❌</div>
+                <div class="stat-info">
+                    <h3 id="stat-losses">--</h3>
+                    <p>Losses</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-4">
+                <div class="stat-icon orange">🤝</div>
+                <div class="stat-info">
+                    <h3 id="stat-draws">--</h3>
+                    <p>Draws</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-2">
+                <div class="stat-icon purple">📈</div>
+                <div class="stat-info">
+                    <h3 id="stat-winrate">--%</h3>
+                    <p>Win Rate</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-3">
+                <div class="stat-icon cyan">🎮</div>
+                <div class="stat-info">
+                    <h3 id="stat-total">--</h3>
+                    <p>Total Matches</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid-2">
+            <!-- Recent Matches -->
+            <div class="glass-card-static animate-in delay-2">
+                <div class="section-header">
+                    <h2>⚔️ Recent Matches</h2>
+                    <a href="/find-match" class="btn btn-sm btn-secondary">View All</a>
+                </div>
+                <div id="recent-matches">
+                    <div class="loading-overlay">
+                        <div class="spinner"></div>
+                        <p>Loading matches...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Bookings -->
+            <div class="glass-card-static animate-in delay-3">
+                <div class="section-header">
+                    <h2>🏟️ Upcoming Bookings</h2>
+                    <a href="/book-venue" class="btn btn-sm btn-secondary">Book New</a>
+                </div>
+                <div id="upcoming-bookings">
+                    <div class="loading-overlay">
+                        <div class="spinner"></div>
+                        <p>Loading bookings...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rating History -->
+        <div class="glass-card-static animate-in delay-4" style="margin-top:1.5rem;">
+            <div class="section-header">
+                <h2>📈 Rating History</h2>
+            </div>
+            <div id="rating-history">
+                <div class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>Loading history...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        (async () => {
+            await App.init();
+            if (!App.requireAuth()) return;
+
+            document.getElementById('player-name').textContent = App.user.name.split(' ')[0];
+
+            try {
+                // Load player profile
+                const profileData = await App.api(`/api/players/${App.user.user_id}`);
+                const p = profileData.player;
+
+                document.getElementById('stat-rating').textContent = p.skill_rating;
+                document.getElementById('stat-wins').textContent = p.wins;
+                document.getElementById('stat-losses').textContent = p.losses;
+                document.getElementById('stat-draws').textContent = p.draws;
+                document.getElementById('stat-winrate').textContent = p.win_percentage + '%';
+                document.getElementById('stat-total').textContent = p.total_matches;
+
+                // Rating tier badge
+                const tier = App.getRatingTier(p.skill_rating);
+                document.getElementById('stat-rating').innerHTML = `${p.skill_rating} <span class="rating-tier ${tier.class}">${tier.name}</span>`;
+
+                // Recent Matches
+                const matchesHtml = profileData.matches.length > 0
+                    ? profileData.matches.slice(0, 5).map(m => {
+                        const isP1 = m.player1_id === App.user.user_id;
+                        const opponent = isP1 ? m.player2_name : m.player1_name;
+                        let resultText = '';
+                        if (m.result === 'pending') resultText = '<span class="badge badge-purple">Pending</span>';
+                        else if ((m.result === 'player1_win' && isP1) || (m.result === 'player2_win' && !isP1)) resultText = '<span class="badge badge-green">Won</span>';
+                        else if (m.result === 'draw') resultText = '<span class="badge badge-orange">Draw</span>';
+                        else resultText = '<span class="badge badge-red">Lost</span>';
+
+                        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color);">
+                <div>
+                  <strong>${opponent}</strong>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">${m.sport} • ${App.formatDate(m.match_date)}</div>
+                </div>
+                <div style="text-align:right;">
+                  ${resultText}
+                  ${m.score ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">${m.score}</div>` : ''}
+                </div>
+              </div>`;
+                    }).join('')
+                    : '<div class="empty-state"><div class="empty-icon">⚔️</div><h3>No matches yet</h3><p>Find a match to get started!</p></div>';
+
+                document.getElementById('recent-matches').innerHTML = matchesHtml;
+
+                // Rating History
+                const histHtml = profileData.history.length > 0
+                    ? `<div class="table-container"><table><thead><tr><th>Date</th><th>Old</th><th>New</th><th>Change</th></tr></thead><tbody>${profileData.history.map(h => `<tr>
+                <td>${App.formatDate(h.recorded_at)}</td>
+                <td>${h.old_rating}</td>
+                <td>${h.new_rating}</td>
+                <td style="color:${h.rating_change > 0 ? 'var(--accent-green)' : h.rating_change < 0 ? 'var(--accent-red)' : 'var(--text-muted)'};font-weight:600;">
+                  ${h.rating_change > 0 ? '+' : ''}${h.rating_change}
+                </td>
+              </tr>`).join('')
+                    }</tbody></table></div>`
+                    : '<div class="empty-state"><p>No rating changes yet</p></div>';
+
+                document.getElementById('rating-history').innerHTML = histHtml;
+
+            } catch (err) {
+                console.error(err);
+            }
+
+            // Load bookings
+            try {
+                const bookings = await App.api('/api/bookings/my');
+                const upcoming = bookings.filter(b => b.status === 'confirmed' && new Date(b.booking_date) >= new Date(new Date().toDateString()));
+
+                const bookHtml = upcoming.length > 0
+                    ? upcoming.slice(0, 5).map(b => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color);">
+              <div>
+                <strong>${b.venue_name}</strong>
+                <div style="font-size:0.8rem;color:var(--text-muted);">${b.resource_name} • ${b.sport_type}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:0.85rem;">${App.formatDate(b.booking_date)}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">${App.formatTime(b.start_time)} – ${App.formatTime(b.end_time)}</div>
+              </div>
+            </div>`).join('')
+                    : '<div class="empty-state"><div class="empty-icon">🏟️</div><h3>No upcoming bookings</h3><p>Book a venue to get started!</p></div>';
+
+                document.getElementById('upcoming-bookings').innerHTML = bookHtml;
+            } catch (err) {
+                document.getElementById('upcoming-bookings').innerHTML = '<div class="empty-state"><p>Could not load bookings</p></div>';
+            }
+        })();
+    </script>
+</body>
+
+</html>

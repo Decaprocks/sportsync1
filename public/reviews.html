@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="SportSync Reviews – Read and write reviews for sports venues using hybrid SQL-NoSQL storage.">
+    <title>SportSync – Reviews</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="/dashboard" class="navbar-brand"><span class="brand-icon">🏟️</span> SportSync</a>
+        <div class="navbar-nav" id="main-nav"></div>
+        <div class="navbar-user" id="user-section"></div>
+    </nav>
+
+    <div class="main-content">
+        <div class="page-header animate-in">
+            <div>
+                <h1>⭐ <span class="gradient-text">Venue Reviews</span></h1>
+                <p class="page-subtitle">Read and share venue experiences (NoSQL/JSON storage)</p>
+            </div>
+            <button class="btn btn-primary" onclick="openReviewModal()">✍️ Write Review</button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-bar animate-in delay-1">
+            <select class="form-control" id="filter-venue" onchange="loadReviews()">
+                <option value="">All Venues</option>
+            </select>
+            <select class="form-control" id="filter-rating" onchange="loadReviews()">
+                <option value="">All Ratings</option>
+                <option value="5">⭐⭐⭐⭐⭐ Only</option>
+                <option value="4">⭐⭐⭐⭐ & Above</option>
+                <option value="3">⭐⭐⭐ & Above</option>
+            </select>
+        </div>
+
+        <!-- Reviews List -->
+        <div id="reviews-list" class="animate-in delay-2">
+            <div class="loading-overlay">
+                <div class="spinner"></div>
+                <p>Loading reviews...</p>
+            </div>
+        </div>
+
+        <!-- Write Review Modal -->
+        <div class="modal-overlay" id="review-modal">
+            <div class="modal">
+                <h2>✍️ Write a Review</h2>
+                <form onsubmit="submitReview(event)">
+                    <div class="form-group">
+                        <label for="review-venue">Venue</label>
+                        <select id="review-venue" class="form-control" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Rating</label>
+                        <div class="stars" id="review-stars" style="font-size:1.5rem;">
+                            <span class="star" data-rating="1" onclick="setReviewRating(1)">★</span>
+                            <span class="star" data-rating="2" onclick="setReviewRating(2)">★</span>
+                            <span class="star" data-rating="3" onclick="setReviewRating(3)">★</span>
+                            <span class="star" data-rating="4" onclick="setReviewRating(4)">★</span>
+                            <span class="star" data-rating="5" onclick="setReviewRating(5)">★</span>
+                        </div>
+                        <input type="hidden" id="review-rating" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="review-text">Your Review</label>
+                        <textarea id="review-text" class="form-control" rows="4"
+                            placeholder="Share your experience at this venue..." required
+                            style="resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex;gap:1rem;margin-top:1rem;">
+                        <button type="submit" class="btn btn-primary" id="review-btn">Submit Review</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeReviewModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        let venues = [];
+        let reviewRating = 5;
+
+        (async () => {
+            await App.init();
+            await loadVenueOptions();
+            setReviewRating(5);
+            loadReviews();
+        })();
+
+        async function loadVenueOptions() {
+            try {
+                venues = await App.api('/api/venues');
+                const filterSelect = document.getElementById('filter-venue');
+                const reviewSelect = document.getElementById('review-venue');
+                venues.forEach(v => {
+                    filterSelect.innerHTML += `<option value="${v.venue_id}">${v.name} – ${v.city}</option>`;
+                    reviewSelect.innerHTML += `<option value="${v.venue_id}" data-name="${v.name}">${v.name} – ${v.city}</option>`;
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadReviews() {
+            const venueId = document.getElementById('filter-venue').value;
+            const minRating = document.getElementById('filter-rating').value;
+            let url = '/api/reviews?';
+            if (venueId) url += `venue_id=${venueId}&`;
+            if (minRating) url += `min_rating=${minRating}&`;
+
+            try {
+                const reviews = await App.api(url);
+                if (reviews.length === 0) {
+                    document.getElementById('reviews-list').innerHTML = '<div class="empty-state"><div class="empty-icon">⭐</div><h3>No reviews yet</h3><p>Be the first to write a review!</p></div>';
+                    return;
+                }
+
+                document.getElementById('reviews-list').innerHTML = reviews.map(r => {
+                    const initials = (r.user_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
+                    const date = new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const canDelete = App.user && r.user_id === App.user.user_id;
+
+                    return `<div class="review-card">
+            <div class="review-header">
+              <div class="review-avatar">${initials}</div>
+              <div class="review-meta">
+                <h4>${r.user_name} ${r.venue_name ? `<span style="color:var(--text-muted);font-weight:400;">on ${r.venue_name}</span>` : ''}</h4>
+                <span>${date} • ${App.renderStars(r.rating)}</span>
+              </div>
+              ${canDelete ? `<button class="btn btn-sm btn-danger" style="margin-left:auto;" onclick="deleteReview('${r.review_id}')">🗑️</button>` : ''}
+            </div>
+            <p class="review-text">${r.text}</p>
+            ${r.tags && r.tags.length > 0 ? `<div class="review-tags">${r.tags.map(t => `<span class="review-tag">${t}</span>`).join('')}</div>` : ''}
+          </div>`;
+                }).join('');
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+
+        function setReviewRating(rating) {
+            reviewRating = rating;
+            document.getElementById('review-rating').value = rating;
+            document.querySelectorAll('#review-stars .star').forEach(s => {
+                s.classList.toggle('filled', parseInt(s.dataset.rating) <= rating);
+            });
+        }
+
+        function openReviewModal() {
+            if (!App.user) { App.toast('Please login to write a review', 'warning'); return; }
+            document.getElementById('review-modal').classList.add('active');
+        }
+
+        function closeReviewModal() {
+            document.getElementById('review-modal').classList.remove('active');
+        }
+
+        async function submitReview(e) {
+            e.preventDefault();
+            const btn = document.getElementById('review-btn');
+            btn.textContent = 'Submitting...';
+            btn.disabled = true;
+
+            const venueSelect = document.getElementById('review-venue');
+            const venueName = venueSelect.options[venueSelect.selectedIndex].dataset.name || '';
+
+            try {
+                await App.api('/api/reviews', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        venue_id: venueSelect.value,
+                        venue_name: venueName,
+                        rating: reviewRating,
+                        text: document.getElementById('review-text').value
+                    })
+                });
+                App.toast('Review submitted! ⭐', 'success');
+                closeReviewModal();
+                document.getElementById('review-text').value = '';
+                loadReviews();
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+            btn.textContent = 'Submit Review';
+            btn.disabled = false;
+        }
+
+        async function deleteReview(reviewId) {
+            if (!confirm('Delete this review?')) return;
+            try {
+                await App.api(`/api/reviews/${reviewId}`, { method: 'DELETE' });
+                App.toast('Review deleted', 'success');
+                loadReviews();
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

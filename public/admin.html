@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SportSync Admin Panel – System overview, user management, and match oversight.">
+    <title>SportSync – Admin Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="/admin" class="navbar-brand"><span class="brand-icon">🏟️</span> SportSync</a>
+        <div class="navbar-nav" id="main-nav"></div>
+        <div class="navbar-user" id="user-section"></div>
+    </nav>
+
+    <div class="main-content">
+        <div class="page-header animate-in">
+            <div>
+                <h1>🛡️ <span class="gradient-text">Admin Panel</span></h1>
+                <p class="page-subtitle">System overview and management</p>
+            </div>
+        </div>
+
+        <!-- System Stats -->
+        <div class="stat-grid" id="admin-stats">
+            <div class="stat-card animate-in delay-1">
+                <div class="stat-icon blue">👥</div>
+                <div class="stat-info">
+                    <h3 id="stat-users">--</h3>
+                    <p>Total Users</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-1">
+                <div class="stat-icon green">🏃</div>
+                <div class="stat-info">
+                    <h3 id="stat-players">--</h3>
+                    <p>Players</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-2">
+                <div class="stat-icon purple">🏟️</div>
+                <div class="stat-info">
+                    <h3 id="stat-venues">--</h3>
+                    <p>Venues</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-2">
+                <div class="stat-icon orange">⚔️</div>
+                <div class="stat-info">
+                    <h3 id="stat-matches">--</h3>
+                    <p>Total Matches</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-3">
+                <div class="stat-icon cyan">📅</div>
+                <div class="stat-info">
+                    <h3 id="stat-bookings">--</h3>
+                    <p>Active Bookings</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-3">
+                <div class="stat-icon pink">💰</div>
+                <div class="stat-info">
+                    <h3 id="stat-revenue">--</h3>
+                    <p>Total Revenue</p>
+                </div>
+            </div>
+            <div class="stat-card animate-in delay-4">
+                <div class="stat-icon red">🔥</div>
+                <div class="stat-info">
+                    <h3 id="stat-active-matches">--</h3>
+                    <p>Active Matches</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Table -->
+        <div class="glass-card-static animate-in delay-2">
+            <div class="section-header">
+                <h2>👥 User Management</h2>
+            </div>
+            <div id="users-table">
+                <div class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>Loading users...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matches Oversight -->
+        <div class="glass-card-static animate-in delay-3" style="margin-top:1.5rem;">
+            <div class="section-header">
+                <h2>⚔️ Match Oversight</h2>
+            </div>
+            <div id="matches-table">
+                <div class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>Loading matches...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- DBMS Concepts Showcase -->
+        <div class="glass-card-static animate-in delay-4" style="margin-top:1.5rem;">
+            <div class="section-header">
+                <h2>📚 DBMS Concepts Implemented</h2>
+            </div>
+            <div
+                style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem;margin-top:1rem;">
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-blue);">
+                    <strong>EER Modeling</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">User → Player / Venue Manager
+                        specialization with total, disjoint constraints</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-green);">
+                    <strong>BCNF Normalization</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">All tables decomposed to
+                        eliminate partial & transitive dependencies</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-purple);">
+                    <strong>Triggers</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Eligibility check, ELO update,
+                        double booking prevention</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-orange);">
+                    <strong>Stored Procedures</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Update_ELO, Book_Resource with
+                        transaction control</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-cyan);">
+                    <strong>Transactions & ACID</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">START TRANSACTION, COMMIT,
+                        ROLLBACK, SELECT FOR UPDATE</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-pink);">
+                    <strong>Concurrency Control</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Row-level locking prevents race
+                        conditions in bookings</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-red);">
+                    <strong>Indexing (B-Tree)</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Composite indexes on
+                        booking_date, player_location, skill_rating</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid #a855f7;">
+                    <strong>Views</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Leaderboard, recent matches,
+                        venue availability, player summary</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid #0ea5e9;">
+                    <strong>Hybrid SQL–NoSQL</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">JSON document storage for
+                        unstructured reviews & feedback</p>
+                </div>
+                <div
+                    style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid #14b8a6;">
+                    <strong>Constraints</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">PK, FK (CASCADE/RESTRICT),
+                        UNIQUE, CHECK, NOT NULL enforced</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        (async () => {
+            await App.init();
+            if (!App.requireAuth()) return;
+            if (App.user.role !== 'admin') {
+                App.toast('Admin access required', 'error');
+                window.location.href = '/dashboard';
+                return;
+            }
+            loadStats();
+            loadUsers();
+            loadMatches();
+        })();
+
+        async function loadStats() {
+            try {
+                const stats = await App.api('/api/admin/stats');
+                document.getElementById('stat-users').textContent = stats.total_users;
+                document.getElementById('stat-players').textContent = stats.total_players;
+                document.getElementById('stat-venues').textContent = stats.total_venues;
+                document.getElementById('stat-matches').textContent = stats.total_matches;
+                document.getElementById('stat-bookings').textContent = stats.active_bookings;
+                document.getElementById('stat-revenue').textContent = '₹' + parseFloat(stats.total_revenue).toLocaleString();
+                document.getElementById('stat-active-matches').textContent = stats.active_matches;
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const users = await App.api('/api/admin/users');
+                document.getElementById('users-table').innerHTML = `
+          <div class="table-container">
+            <table>
+              <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Rating</th><th>Sport</th><th>Location</th><th>Joined</th><th>Action</th></tr></thead>
+              <tbody>
+                ${users.map(u => `<tr>
+                  <td>#${u.user_id}</td>
+                  <td><strong>${u.name}</strong></td>
+                  <td style="color:var(--text-muted);">${u.email}</td>
+                  <td>${u.role === 'admin' ? '<span class="badge badge-red">Admin</span>' :
+                        u.role === 'venue_manager' ? '<span class="badge badge-purple">Manager</span>' :
+                            '<span class="badge badge-blue">Player</span>'}</td>
+                  <td>${u.skill_rating || '-'}</td>
+                  <td style="text-transform:capitalize;">${u.sport_preference || '-'}</td>
+                  <td>${u.location || '-'}</td>
+                  <td>${App.formatDate(u.created_at)}</td>
+                  <td>${u.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.user_id})">Delete</button>` : '-'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+            } catch (err) {
+                document.getElementById('users-table').innerHTML = '<div class="empty-state"><p>Could not load users</p></div>';
+            }
+        }
+
+        async function loadMatches() {
+            try {
+                const matches = await App.api('/api/admin/matches');
+                document.getElementById('matches-table').innerHTML = `
+          <div class="table-container">
+            <table>
+              <thead><tr><th>ID</th><th>Date</th><th>Player 1</th><th>vs</th><th>Player 2</th><th>Sport</th><th>Venue</th><th>Result</th><th>Status</th></tr></thead>
+              <tbody>
+                ${matches.map(m => `<tr>
+                  <td>#${m.match_id}</td>
+                  <td>${App.formatDate(m.match_date)}</td>
+                  <td>${m.player1_name}</td>
+                  <td style="color:var(--text-muted);">vs</td>
+                  <td>${m.player2_name}</td>
+                  <td>${m.sport}</td>
+                  <td>${m.venue_name || '-'}</td>
+                  <td>${App.getResultBadge(m.result)}</td>
+                  <td>${App.getStatusBadge(m.status)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+            } catch (err) {
+                document.getElementById('matches-table').innerHTML = '<div class="empty-state"><p>Could not load matches</p></div>';
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+            try {
+                await App.api(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                App.toast('User deleted', 'success');
+                loadUsers();
+                loadStats();
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

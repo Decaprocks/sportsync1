@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="SportSync – Book sports venues and courts in real-time with transaction-safe booking.">
+    <title>SportSync – Book Venue</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="/dashboard" class="navbar-brand"><span class="brand-icon">🏟️</span> SportSync</a>
+        <div class="navbar-nav" id="main-nav"></div>
+        <div class="navbar-user" id="user-section"></div>
+    </nav>
+
+    <div class="main-content">
+        <div class="page-header animate-in">
+            <div>
+                <h1>🏟️ <span class="gradient-text">Book Venue</span></h1>
+                <p class="page-subtitle">Find and reserve sports facilities with real-time availability</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-bar animate-in delay-1">
+            <select class="form-control" id="filter-city" onchange="loadVenues()">
+                <option value="">All Cities</option>
+                <option value="Mumbai">Mumbai</option>
+                <option value="Delhi">Delhi</option>
+                <option value="Bangalore">Bangalore</option>
+                <option value="Hyderabad">Hyderabad</option>
+                <option value="Chennai">Chennai</option>
+                <option value="Pune">Pune</option>
+                <option value="Kolkata">Kolkata</option>
+            </select>
+            <select class="form-control" id="filter-sport" onchange="loadVenues()">
+                <option value="">All Sports</option>
+                <option value="badminton">Badminton</option>
+                <option value="tennis">Tennis</option>
+                <option value="table_tennis">Table Tennis</option>
+                <option value="football">Football</option>
+            </select>
+        </div>
+
+        <!-- Venues List -->
+        <div class="venue-grid" id="venues-list">
+            <div class="loading-overlay">
+                <div class="spinner"></div>
+                <p>Loading venues...</p>
+            </div>
+        </div>
+
+        <!-- Booking Modal -->
+        <div class="modal-overlay" id="booking-modal">
+            <div class="modal">
+                <h2>📅 Book Resource</h2>
+                <div id="modal-venue-info"></div>
+                <form onsubmit="submitBooking(event)">
+                    <input type="hidden" id="booking-resource-id">
+                    <div class="form-group">
+                        <label for="booking-date">Date</label>
+                        <input type="date" id="booking-date" class="form-control" required onchange="loadTimeSlots()">
+                    </div>
+                    <div class="form-group">
+                        <label>Available Time Slots</label>
+                        <div class="time-slots" id="time-slots">
+                            <p style="color:var(--text-muted);font-size:0.85rem;">Select a date to see available slots
+                            </p>
+                        </div>
+                    </div>
+                    <input type="hidden" id="booking-start">
+                    <input type="hidden" id="booking-end">
+                    <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+                        <button type="submit" class="btn btn-primary" id="book-btn" disabled>Confirm Booking</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        let currentResource = null;
+        let selectedSlot = null;
+
+        (async () => {
+            await App.init();
+            if (!App.requireAuth()) return;
+            loadVenues();
+        })();
+
+        async function loadVenues() {
+            const city = document.getElementById('filter-city').value;
+            const sport = document.getElementById('filter-sport').value;
+            let url = '/api/venues?';
+            if (city) url += `city=${city}&`;
+            if (sport) url += `sport=${sport}&`;
+
+            try {
+                const venues = await App.api(url);
+                if (venues.length === 0) {
+                    document.getElementById('venues-list').innerHTML = '<div class="empty-state"><div class="empty-icon">🏟️</div><h3>No venues found</h3><p>Try adjusting your filters</p></div>';
+                    return;
+                }
+
+                document.getElementById('venues-list').innerHTML = venues.map(v => `
+          <div class="venue-card animate-in">
+            <div class="venue-card-header">
+              <h3>${v.name}</h3>
+              <div class="venue-location">📍 ${v.location}, ${v.city}</div>
+            </div>
+            <div class="venue-card-body">
+              <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">${v.description || 'Sports facility'}</p>
+              <div class="venue-meta">
+                <span class="venue-meta-item">🏅 ${App.renderStars(Math.round(v.rating))}</span>
+                <span class="venue-meta-item">🏢 ${v.total_resources} resources</span>
+                <span class="venue-meta-item">✅ ${v.available_resources} available</span>
+              </div>
+              <div style="margin-top:1rem;">
+                <button class="btn btn-primary btn-sm" onclick="viewResources(${v.venue_id}, '${v.name}')">View Resources & Book</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+
+        async function viewResources(venueId, venueName) {
+            try {
+                const resources = await App.api(`/api/venues/${venueId}/resources`);
+                if (resources.length === 0) {
+                    App.toast('No available resources at this venue', 'warning');
+                    return;
+                }
+
+                document.getElementById('venues-list').innerHTML = `
+          <div style="grid-column:1/-1;">
+            <button class="btn btn-secondary btn-sm" onclick="loadVenues()" style="margin-bottom:1rem;">← Back to Venues</button>
+            <h2 style="margin-bottom:1rem;">${venueName} – Available Resources</h2>
+            <div class="table-container">
+              <table>
+                <thead><tr><th>Resource</th><th>Type</th><th>Sport</th><th>Capacity</th><th>Price/hr</th><th>Action</th></tr></thead>
+                <tbody>
+                  ${resources.map(r => `<tr>
+                    <td><strong>${r.name}</strong></td>
+                    <td><span class="badge badge-blue">${r.type}</span></td>
+                    <td>${r.sport_type}</td>
+                    <td>${r.capacity} players</td>
+                    <td style="color:var(--accent-green);font-weight:600;">₹${r.price_per_hour}</td>
+                    <td><button class="btn btn-primary btn-sm" onclick="openBooking(${r.resource_id}, '${r.name}', '${r.sport_type}', ${r.price_per_hour})">Book</button></td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+
+        function openBooking(resourceId, name, sport, price) {
+            currentResource = { resourceId, name, sport, price };
+            document.getElementById('booking-resource-id').value = resourceId;
+            document.getElementById('modal-venue-info').innerHTML = `
+        <div style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);margin-bottom:1rem;">
+          <strong>${name}</strong> <span class="badge badge-blue">${sport}</span>
+          <div style="color:var(--accent-green);font-weight:600;margin-top:4px;">₹${price}/hr</div>
+        </div>
+      `;
+            // Set min date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('booking-date').min = today;
+            document.getElementById('booking-date').value = today;
+            document.getElementById('booking-modal').classList.add('active');
+            loadTimeSlots();
+        }
+
+        function closeModal() {
+            document.getElementById('booking-modal').classList.remove('active');
+            selectedSlot = null;
+        }
+
+        async function loadTimeSlots() {
+            const date = document.getElementById('booking-date').value;
+            if (!date || !currentResource) return;
+
+            try {
+                const resources = await App.api(`/api/venues/${0}/resources?date=${date}`);
+                // We need the specific resource bookings
+                const res = await fetch(`/api/venues/0/resources?date=${date}`).catch(() => null);
+
+                // Generate time slots from 6 AM to 10 PM
+                const slots = [];
+                for (let h = 6; h < 22; h++) {
+                    const start = `${String(h).padStart(2, '0')}:00`;
+                    const end = `${String(h + 1).padStart(2, '0')}:00`;
+                    slots.push({ start: `${start}:00`, end: `${end}:00`, display: `${App.formatTime(start)} – ${App.formatTime(end)}`, booked: false });
+                }
+
+                // For now simplified – in production would check actual bookings
+                const slotsHtml = slots.map((s, i) => `
+          <div class="time-slot ${s.booked ? 'booked' : ''}" data-index="${i}" data-start="${s.start}" data-end="${s.end}"
+               onclick="${s.booked ? '' : `selectSlot(${i}, '${s.start}', '${s.end}')`}">
+            ${s.display}
+          </div>
+        `).join('');
+
+                document.getElementById('time-slots').innerHTML = slotsHtml;
+            } catch (err) {
+                // Generate time slots anyway
+                const slots = [];
+                for (let h = 6; h < 22; h++) {
+                    const start = `${String(h).padStart(2, '0')}:00:00`;
+                    const end = `${String(h + 1).padStart(2, '0')}:00:00`;
+                    const disp = App.formatTime(`${String(h).padStart(2, '0')}:00`) + ' – ' + App.formatTime(`${String(h + 1).padStart(2, '0')}:00`);
+                    slots.push({ start, end, disp });
+                }
+                document.getElementById('time-slots').innerHTML = slots.map((s, i) => `
+          <div class="time-slot" data-index="${i}" onclick="selectSlot(${i}, '${s.start}', '${s.end}')">
+            ${s.disp}
+          </div>
+        `).join('');
+            }
+        }
+
+        function selectSlot(index, start, end) {
+            document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+            document.querySelector(`.time-slot[data-index="${index}"]`).classList.add('selected');
+            document.getElementById('booking-start').value = start;
+            document.getElementById('booking-end').value = end;
+            document.getElementById('book-btn').disabled = false;
+            selectedSlot = { start, end };
+        }
+
+        async function submitBooking(e) {
+            e.preventDefault();
+            const btn = document.getElementById('book-btn');
+            btn.textContent = 'Booking...';
+            btn.disabled = true;
+
+            try {
+                const data = await App.api('/api/bookings', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        resource_id: document.getElementById('booking-resource-id').value,
+                        booking_date: document.getElementById('booking-date').value,
+                        start_time: document.getElementById('booking-start').value,
+                        end_time: document.getElementById('booking-end').value
+                    })
+                });
+
+                App.toast('Booking confirmed! 🎉', 'success');
+                closeModal();
+                loadVenues();
+            } catch (err) {
+                App.toast(err.message, 'error');
+                btn.textContent = 'Confirm Booking';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

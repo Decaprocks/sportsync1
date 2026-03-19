@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="SportSync – Find players near you and challenge them to a match based on ELO skill rating.">
+    <title>SportSync – Find Match</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="/dashboard" class="navbar-brand"><span class="brand-icon">🏟️</span> SportSync</a>
+        <div class="navbar-nav" id="main-nav"></div>
+        <div class="navbar-user" id="user-section"></div>
+    </nav>
+
+    <div class="main-content">
+        <div class="page-header animate-in">
+            <div>
+                <h1>⚔️ <span class="gradient-text">Find Match</span></h1>
+                <p class="page-subtitle">Intelligent matchmaking based on ELO skill ratings</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-bar animate-in delay-1">
+            <select class="form-control" id="filter-sport" onchange="findPlayers()">
+                <option value="general">All Sports</option>
+                <option value="badminton">Badminton</option>
+                <option value="tennis">Tennis</option>
+                <option value="table_tennis">Table Tennis</option>
+                <option value="football">Football</option>
+            </select>
+            <input type="text" class="form-control" id="filter-location" placeholder="City..." onchange="findPlayers()">
+            <button class="btn btn-primary" onclick="findPlayers()">🔍 Search Players</button>
+        </div>
+
+        <!-- Players Grid -->
+        <div class="player-grid" id="players-list">
+            <div class="loading-overlay">
+                <div class="spinner"></div>
+                <p>Finding players near you...</p>
+            </div>
+        </div>
+
+        <!-- Challenge Modal -->
+        <div class="modal-overlay" id="challenge-modal">
+            <div class="modal">
+                <h2>⚔️ Challenge Player</h2>
+                <div id="challenge-info"></div>
+                <form onsubmit="submitChallenge(event)">
+                    <input type="hidden" id="challenge-player-id">
+                    <div class="form-group">
+                        <label for="challenge-sport">Sport</label>
+                        <select id="challenge-sport" class="form-control" required>
+                            <option value="badminton">Badminton</option>
+                            <option value="tennis">Tennis</option>
+                            <option value="table_tennis">Table Tennis</option>
+                            <option value="football">Football</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="challenge-date">Match Date</label>
+                        <input type="date" id="challenge-date" class="form-control" required>
+                    </div>
+                    <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+                        <button type="submit" class="btn btn-primary" id="challenge-btn">Send Challenge</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeChallengeModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Match History Section -->
+        <div class="glass-card-static animate-in delay-3" style="margin-top:2rem;">
+            <div class="section-header">
+                <h2>📋 Your Match History</h2>
+            </div>
+            <div id="match-history">
+                <div class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        (async () => {
+            await App.init();
+            if (!App.requireAuth()) return;
+            findPlayers();
+            loadMatchHistory();
+        })();
+
+        async function findPlayers() {
+            const sport = document.getElementById('filter-sport').value;
+            const location = document.getElementById('filter-location').value;
+            let url = `/api/players/nearby?sport=${sport}`;
+            if (location) url += `&location=${location}`;
+
+            try {
+                const players = await App.api(url);
+                if (players.length === 0) {
+                    document.getElementById('players-list').innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🔍</div><h3>No players found</h3><p>Try adjusting your search filters</p></div>';
+                    return;
+                }
+
+                document.getElementById('players-list').innerHTML = players.map(p => {
+                    const tier = App.getRatingTier(p.skill_rating);
+                    const avatarColors = ['var(--gradient-primary)', 'var(--gradient-success)', 'var(--gradient-purple)', 'var(--gradient-orange)'];
+                    const color = avatarColors[p.player_id % avatarColors.length];
+                    const initials = p.name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+                    return `<div class="player-card animate-in">
+            <div class="player-avatar" style="background:${color};">${initials}</div>
+            <h3>${p.name}</h3>
+            <p class="player-sport">${p.sport_preference} • ${p.location || 'Unknown'}</p>
+            <div style="margin:10px 0;">
+              <span style="font-weight:700;font-size:1.1rem;">${p.skill_rating}</span>
+              <span class="rating-tier ${tier.class}">${tier.name}</span>
+            </div>
+            <div class="player-stats">
+              <div class="player-stat"><div class="value" style="color:var(--accent-green);">${p.wins}</div><div class="label">Wins</div></div>
+              <div class="player-stat"><div class="value" style="color:var(--accent-red);">${p.losses}</div><div class="label">Losses</div></div>
+              <div class="player-stat"><div class="value">${p.age || '-'}</div><div class="label">Age</div></div>
+              <div class="player-stat"><div class="value">${p.gender === 'male' ? '♂️' : p.gender === 'female' ? '♀️' : '⚧️'}</div><div class="label">Gender</div></div>
+            </div>
+            <button class="btn btn-primary btn-sm btn-block" onclick="openChallenge(${p.player_id}, '${p.name}', ${p.skill_rating}, '${p.sport_preference}')">
+              ⚔️ Challenge
+            </button>
+          </div>`;
+                }).join('');
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+
+        function openChallenge(playerId, name, rating, sport) {
+            const tier = App.getRatingTier(rating);
+            document.getElementById('challenge-player-id').value = playerId;
+            document.getElementById('challenge-sport').value = sport !== 'general' ? sport : 'badminton';
+            document.getElementById('challenge-info').innerHTML = `
+        <div style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+          <div><strong>${name}</strong><div style="font-size:0.8rem;color:var(--text-muted);">${sport}</div></div>
+          <div><span style="font-weight:700;">${rating}</span> <span class="rating-tier ${tier.class}">${tier.name}</span></div>
+        </div>
+      `;
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('challenge-date').min = today;
+            document.getElementById('challenge-date').value = today;
+            document.getElementById('challenge-modal').classList.add('active');
+        }
+
+        function closeChallengeModal() {
+            document.getElementById('challenge-modal').classList.remove('active');
+        }
+
+        async function submitChallenge(e) {
+            e.preventDefault();
+            const btn = document.getElementById('challenge-btn');
+            btn.textContent = 'Sending...';
+            btn.disabled = true;
+
+            try {
+                await App.api('/api/matches', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        player2_id: document.getElementById('challenge-player-id').value,
+                        sport: document.getElementById('challenge-sport').value,
+                        match_date: document.getElementById('challenge-date').value
+                    })
+                });
+                App.toast('Challenge sent! Match created. ⚔️', 'success');
+                closeChallengeModal();
+                loadMatchHistory();
+            } catch (err) {
+                App.toast(err.message, 'error');
+                btn.textContent = 'Send Challenge';
+                btn.disabled = false;
+            }
+        }
+
+        async function loadMatchHistory() {
+            try {
+                const matches = await App.api(`/api/matches?player_id=${App.user.user_id}`);
+                if (matches.length === 0) {
+                    document.getElementById('match-history').innerHTML = '<div class="empty-state"><p>No matches yet. Challenge someone above!</p></div>';
+                    return;
+                }
+
+                document.getElementById('match-history').innerHTML = `
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Date</th><th>Opponent</th><th>Sport</th><th>Score</th><th>Result</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody>
+                ${matches.map(m => {
+                    const isP1 = m.player1_id === App.user.user_id;
+                    const opponent = isP1 ? m.player2_name : m.player1_name;
+                    let resultBadge = '';
+                    if (m.result === 'pending') resultBadge = '<span class="badge badge-purple">Pending</span>';
+                    else if ((m.result === 'player1_win' && isP1) || (m.result === 'player2_win' && !isP1)) resultBadge = '<span class="badge badge-green">Won</span>';
+                    else if (m.result === 'draw') resultBadge = '<span class="badge badge-orange">Draw</span>';
+                    else resultBadge = '<span class="badge badge-red">Lost</span>';
+
+                    const actionBtn = m.result === 'pending'
+                        ? `<button class="btn btn-sm btn-success" onclick="recordResult(${m.match_id}, ${isP1})">Record Result</button>`
+                        : '-';
+
+                    return `<tr>
+                    <td>${App.formatDate(m.match_date)}</td>
+                    <td><strong>${opponent}</strong></td>
+                    <td>${m.sport}</td>
+                    <td>${m.score || '-'}</td>
+                    <td>${resultBadge}</td>
+                    <td>${App.getStatusBadge(m.status)}</td>
+                    <td>${actionBtn}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+            } catch (err) {
+                document.getElementById('match-history').innerHTML = '<div class="empty-state"><p>Could not load matches</p></div>';
+            }
+        }
+
+        async function recordResult(matchId, isP1) {
+            const result = prompt('Enter result:\n1 = You Won\n2 = Opponent Won\n3 = Draw');
+            if (!result) return;
+
+            const score = prompt('Enter score (optional, e.g., 21-15, 21-18):') || '';
+            let resultValue;
+            if (result === '1') resultValue = isP1 ? 'player1_win' : 'player2_win';
+            else if (result === '2') resultValue = isP1 ? 'player2_win' : 'player1_win';
+            else resultValue = 'draw';
+
+            try {
+                const data = await App.api(`/api/matches/${matchId}/result`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ result: resultValue, score })
+                });
+
+                if (data.elo_changes && data.elo_changes.length > 0) {
+                    const myChange = data.elo_changes.find(c => c.player_id === App.user.user_id);
+                    if (myChange) {
+                        const sign = myChange.rating_change > 0 ? '+' : '';
+                        App.toast(`Result recorded! ELO: ${myChange.new_rating} (${sign}${myChange.rating_change})`, 'success');
+                    }
+                } else {
+                    App.toast('Result recorded!', 'success');
+                }
+                loadMatchHistory();
+            } catch (err) {
+                App.toast(err.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

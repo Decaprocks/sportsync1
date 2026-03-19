@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SportSync Venue Manager Dashboard – Manage your venues, resources, bookings, and revenue.">
+  <title>SportSync – Venue Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/venue-dashboard" class="navbar-brand"><span class="brand-icon">🏟️</span> SportSync</a>
+    <div class="navbar-nav" id="main-nav"></div>
+    <div class="navbar-user" id="user-section"></div>
+  </nav>
+
+  <div class="main-content">
+    <div class="page-header animate-in">
+      <div>
+        <h1>📊 <span class="gradient-text">Venue Dashboard</span></h1>
+        <p class="page-subtitle">Manage your sports venues and track revenue</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddVenueModal()">➕ Add Venue</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid" id="venue-stats">
+      <div class="stat-card animate-in delay-1">
+        <div class="stat-icon blue">🏟️</div>
+        <div class="stat-info"><h3 id="stat-venues">--</h3><p>My Venues</p></div>
+      </div>
+      <div class="stat-card animate-in delay-2">
+        <div class="stat-icon green">💰</div>
+        <div class="stat-info"><h3 id="stat-revenue">--</h3><p>Total Revenue</p></div>
+      </div>
+      <div class="stat-card animate-in delay-3">
+        <div class="stat-icon purple">📅</div>
+        <div class="stat-info"><h3 id="stat-bookings">--</h3><p>Total Bookings</p></div>
+      </div>
+      <div class="stat-card animate-in delay-4">
+        <div class="stat-icon cyan">🏢</div>
+        <div class="stat-info"><h3 id="stat-resources">--</h3><p>Total Resources</p></div>
+      </div>
+    </div>
+
+    <!-- My Venues -->
+    <div class="glass-card-static animate-in delay-2" id="my-venues">
+      <div class="section-header">
+        <h2>🏟️ My Venues</h2>
+      </div>
+      <div id="venues-list">
+        <div class="loading-overlay"><div class="spinner"></div><p>Loading venues...</p></div>
+      </div>
+    </div>
+
+    <!-- Recent Bookings -->
+    <div class="glass-card-static animate-in delay-3" style="margin-top:1.5rem;">
+      <div class="section-header">
+        <h2>📅 Recent Bookings</h2>
+      </div>
+      <div id="recent-bookings">
+        <div class="loading-overlay"><div class="spinner"></div><p>Loading bookings...</p></div>
+      </div>
+    </div>
+
+    <!-- Add Venue Modal -->
+    <div class="modal-overlay" id="add-venue-modal">
+      <div class="modal">
+        <h2>➕ Add New Venue</h2>
+        <form onsubmit="addVenue(event)">
+          <div class="form-group">
+            <label>Venue Name</label>
+            <input type="text" id="venue-name" class="form-control" placeholder="e.g. SportZone Arena" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Location</label>
+              <input type="text" id="venue-location" class="form-control" placeholder="Address" required>
+            </div>
+            <div class="form-group">
+              <label>City</label>
+              <input type="text" id="venue-city" class="form-control" placeholder="City" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="venue-desc" class="form-control" rows="3" placeholder="Describe your venue..." style="resize:vertical;"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Opening Time</label>
+              <input type="time" id="venue-open" class="form-control" value="06:00">
+            </div>
+            <div class="form-group">
+              <label>Closing Time</label>
+              <input type="time" id="venue-close" class="form-control" value="22:00">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Contact Phone</label>
+            <input type="text" id="venue-phone" class="form-control" placeholder="Phone number">
+          </div>
+          <div style="display:flex;gap:1rem;margin-top:1rem;">
+            <button type="submit" class="btn btn-primary">Create Venue</button>
+            <button type="button" class="btn btn-secondary" onclick="closeAddVenueModal()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      await App.init();
+      if (!App.requireAuth()) return;
+      loadMyVenues();
+    })();
+
+    async function loadMyVenues() {
+      try {
+        const venues = await App.api('/api/venues/manager/my');
+        let totalRevenue = 0, totalBookings = 0, totalResources = 0;
+
+        venues.forEach(v => {
+          totalRevenue += parseFloat(v.total_revenue || 0);
+          totalBookings += parseInt(v.total_bookings || 0);
+          totalResources += parseInt(v.total_resources || 0);
+        });
+
+        document.getElementById('stat-venues').textContent = venues.length;
+        document.getElementById('stat-revenue').textContent = '₹' + totalRevenue.toLocaleString();
+        document.getElementById('stat-bookings').textContent = totalBookings;
+        document.getElementById('stat-resources').textContent = totalResources;
+
+        if (venues.length === 0) {
+          document.getElementById('venues-list').innerHTML = '<div class="empty-state"><div class="empty-icon">🏟️</div><h3>No venues yet</h3><p>Add your first venue to get started!</p></div>';
+        } else {
+          document.getElementById('venues-list').innerHTML = `
+            <div class="venue-grid">
+              ${venues.map(v => `
+                <div class="venue-card">
+                  <div class="venue-card-header">
+                    <h3>${v.name}</h3>
+                    <div class="venue-location">📍 ${v.location}, ${v.city}</div>
+                  </div>
+                  <div class="venue-card-body">
+                    <div class="venue-meta">
+                      <span class="venue-meta-item">🏢 ${v.total_resources} resources</span>
+                      <span class="venue-meta-item">📅 ${v.total_bookings} bookings</span>
+                      <span class="venue-meta-item" style="color:var(--accent-green);font-weight:600;">💰 ₹${parseFloat(v.total_revenue).toLocaleString()}</span>
+                    </div>
+                    <div style="margin-top:1rem;">
+                      <button class="btn btn-sm btn-secondary" onclick="viewVenueBookings(${v.venue_id}, '${v.name}')">View Bookings</button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Load bookings for first venue
+        if (venues.length > 0) {
+          loadVenueBookings(venues[0].venue_id);
+        } else {
+          document.getElementById('recent-bookings').innerHTML = '<div class="empty-state"><p>No bookings yet</p></div>';
+        }
+      } catch (err) {
+        App.toast(err.message, 'error');
+      }
+    }
+
+    async function loadVenueBookings(venueId) {
+      try {
+        const bookings = await App.api(`/api/bookings/venue/${venueId}`);
+        if (bookings.length === 0) {
+          document.getElementById('recent-bookings').innerHTML = '<div class="empty-state"><p>No bookings for this venue</p></div>';
+          return;
+        }
+
+        document.getElementById('recent-bookings').innerHTML = `
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Date</th><th>Resource</th><th>Player</th><th>Time</th><th>Price</th><th>Status</th></tr></thead>
+              <tbody>
+                ${bookings.slice(0, 20).map(b => `<tr>
+                  <td>${App.formatDate(b.booking_date)}</td>
+                  <td>${b.resource_name}</td>
+                  <td>${b.player_name}</td>
+                  <td>${App.formatTime(b.start_time)} – ${App.formatTime(b.end_time)}</td>
+                  <td style="color:var(--accent-green);font-weight:600;">₹${b.total_price}</td>
+                  <td>${App.getStatusBadge(b.status)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById('recent-bookings').innerHTML = '<div class="empty-state"><p>Could not load bookings</p></div>';
+      }
+    }
+
+    function viewVenueBookings(venueId, name) {
+      loadVenueBookings(venueId);
+      document.querySelector('.glass-card-static:last-child .section-header h2').textContent = `📅 Bookings – ${name}`;
+    }
+
+    function openAddVenueModal() {
+      document.getElementById('add-venue-modal').classList.add('active');
+    }
+
+    function closeAddVenueModal() {
+      document.getElementById('add-venue-modal').classList.remove('active');
+    }
+
+    async function addVenue(e) {
+      e.preventDefault();
+      try {
+        await App.api('/api/venues', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: document.getElementById('venue-name').value,
+            location: document.getElementById('venue-location').value,
+            city: document.getElementById('venue-city').value,
+            description: document.getElementById('venue-desc').value,
+            opening_time: document.getElementById('venue-open').value,
+            closing_time: document.getElementById('venue-close').value,
+            contact_phone: document.getElementById('venue-phone').value
+          })
+        });
+        App.toast('Venue created!', 'success');
+        closeAddVenueModal();
+        loadMyVenues();
+      } catch (err) {
+        App.toast(err.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

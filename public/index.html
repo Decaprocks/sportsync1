@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SportSync – Intelligent Athletic Matchmaking & Venue Management System. Find players, book venues, and compete.">
+  <title>SportSync – Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-container">
+      <!-- Left: Hero Section -->
+      <div class="auth-hero">
+        <h1>🏟️ SportSync</h1>
+        <p>Your intelligent athletic matchmaking & venue management platform. Find players, book venues, track ratings.</p>
+        <ul class="auth-features">
+          <li>
+            <span class="feature-icon" style="background:rgba(59,130,246,0.15);color:#3b82f6;">⚔️</span>
+            ELO-based skill matchmaking
+          </li>
+          <li>
+            <span class="feature-icon" style="background:rgba(16,185,129,0.15);color:#10b981;">🏟️</span>
+            Real-time venue booking
+          </li>
+          <li>
+            <span class="feature-icon" style="background:rgba(139,92,246,0.15);color:#8b5cf6;">📊</span>
+            Leaderboard & analytics
+          </li>
+          <li>
+            <span class="feature-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;">⭐</span>
+            Venue reviews & ratings
+          </li>
+          <li>
+            <span class="feature-icon" style="background:rgba(236,72,153,0.15);color:#ec4899;">🔒</span>
+            ACID-compliant transactions
+          </li>
+        </ul>
+      </div>
+
+      <!-- Right: Auth Form -->
+      <div class="auth-form-container">
+        <!-- Login Form -->
+        <div id="login-form">
+          <h2>Welcome Back</h2>
+          <p class="auth-subtitle">Sign in to your SportSync account</p>
+          <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+              <label for="login-email">Email</label>
+              <input type="email" id="login-email" class="form-control" placeholder="you@email.com" required>
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input type="password" id="login-password" class="form-control" placeholder="Enter your password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-btn">Sign In</button>
+          </form>
+          <p class="auth-toggle">Don't have an account? <a onclick="showRegister()">Sign Up</a></p>
+          <div style="margin-top:1.5rem;padding:1rem;border-radius:var(--radius-sm);background:var(--bg-glass);font-size:0.8rem;color:var(--text-muted);">
+            <strong>Demo Accounts:</strong><br>
+            Player: arjun@email.com / password123<br>
+            Manager: rajesh@email.com / password123<br>
+            Admin: admin@sportsync.com / password123
+          </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-form" style="display:none;">
+          <h2>Create Account</h2>
+          <p class="auth-subtitle">Join SportSync and start competing</p>
+          <form onsubmit="handleRegister(event)">
+            <div class="form-group">
+              <label for="reg-name">Full Name</label>
+              <input type="text" id="reg-name" class="form-control" placeholder="Your name" required>
+            </div>
+            <div class="form-group">
+              <label for="reg-email">Email</label>
+              <input type="email" id="reg-email" class="form-control" placeholder="you@email.com" required>
+            </div>
+            <div class="form-group">
+              <label for="reg-password">Password</label>
+              <input type="password" id="reg-password" class="form-control" placeholder="Choose a password" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label for="reg-role">I am a</label>
+              <select id="reg-role" class="form-control" onchange="toggleRoleFields()">
+                <option value="player">Player</option>
+                <option value="venue_manager">Venue Manager</option>
+              </select>
+            </div>
+
+            <!-- Player Fields -->
+            <div id="player-fields">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="reg-age">Age</label>
+                  <input type="number" id="reg-age" class="form-control" placeholder="Age" min="10" max="100">
+                </div>
+                <div class="form-group">
+                  <label for="reg-gender">Gender</label>
+                  <select id="reg-gender" class="form-control">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="reg-location">City</label>
+                  <input type="text" id="reg-location" class="form-control" placeholder="e.g. Mumbai">
+                </div>
+                <div class="form-group">
+                  <label for="reg-sport">Sport</label>
+                  <select id="reg-sport" class="form-control">
+                    <option value="badminton">Badminton</option>
+                    <option value="tennis">Tennis</option>
+                    <option value="table_tennis">Table Tennis</option>
+                    <option value="football">Football</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Venue Manager Fields -->
+            <div id="manager-fields" style="display:none;">
+              <div class="form-group">
+                <label for="reg-license">License No</label>
+                <input type="text" id="reg-license" class="form-control" placeholder="e.g. LIC-MH-2024-001">
+              </div>
+              <div class="form-group">
+                <label for="reg-org">Organization</label>
+                <input type="text" id="reg-org" class="form-control" placeholder="Your organization name">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="register-btn">Create Account</button>
+          </form>
+          <p class="auth-toggle">Already have an account? <a onclick="showLogin()">Sign In</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container"></div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    // Check if already logged in
+    (async () => {
+      const authed = await App.checkAuth();
+      if (authed) {
+        if (App.user.role === 'admin') window.location.href = '/admin';
+        else if (App.user.role === 'venue_manager') window.location.href = '/venue-dashboard';
+        else window.location.href = '/dashboard';
+      }
+    })();
+
+    function showLogin() {
+      document.getElementById('login-form').style.display = 'block';
+      document.getElementById('register-form').style.display = 'none';
+    }
+
+    function showRegister() {
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('register-form').style.display = 'block';
+    }
+
+    function toggleRoleFields() {
+      const role = document.getElementById('reg-role').value;
+      document.getElementById('player-fields').style.display = role === 'player' ? 'block' : 'none';
+      document.getElementById('manager-fields').style.display = role === 'venue_manager' ? 'block' : 'none';
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.textContent = 'Signing in...';
+      btn.disabled = true;
+      try {
+        const data = await App.api('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: document.getElementById('login-email').value,
+            password: document.getElementById('login-password').value
+          })
+        });
+        App.toast('Login successful!', 'success');
+        setTimeout(() => {
+          if (data.user.role === 'admin') window.location.href = '/admin';
+          else if (data.user.role === 'venue_manager') window.location.href = '/venue-dashboard';
+          else window.location.href = '/dashboard';
+        }, 500);
+      } catch (err) {
+        App.toast(err.message, 'error');
+        btn.textContent = 'Sign In';
+        btn.disabled = false;
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const btn = document.getElementById('register-btn');
+      btn.textContent = 'Creating account...';
+      btn.disabled = true;
+      try {
+        const role = document.getElementById('reg-role').value;
+        const body = {
+          name: document.getElementById('reg-name').value,
+          email: document.getElementById('reg-email').value,
+          password: document.getElementById('reg-password').value,
+          role
+        };
+
+        if (role === 'player') {
+          body.age = document.getElementById('reg-age').value || 18;
+          body.gender = document.getElementById('reg-gender').value;
+          body.location = document.getElementById('reg-location').value;
+          body.sport_preference = document.getElementById('reg-sport').value;
+        } else {
+          body.license_no = document.getElementById('reg-license').value;
+          body.organization = document.getElementById('reg-org').value;
+        }
+
+        const data = await App.api('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        });
+        App.toast('Account created!', 'success');
+        setTimeout(() => {
+          if (data.user.role === 'venue_manager') window.location.href = '/venue-dashboard';
+          else window.location.href = '/dashboard';
+        }, 500);
+      } catch (err) {
+        App.toast(err.message, 'error');
+        btn.textContent = 'Create Account';
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
