@@ -140,7 +140,7 @@
                 document.getElementById('stat-wins').textContent = p.wins;
                 document.getElementById('stat-losses').textContent = p.losses;
                 document.getElementById('stat-draws').textContent = p.draws;
-                document.getElementById('stat-winrate').textContent = p.win_percentage + '%';
+                document.getElementById('stat-winrate').textContent = p.win_rate + '%';
                 document.getElementById('stat-total').textContent = p.total_matches;
 
                 // Rating tier badge
@@ -150,7 +150,7 @@
                 // Recent Matches
                 const matchesHtml = profileData.matches.length > 0
                     ? profileData.matches.slice(0, 5).map(m => {
-                        const isP1 = m.player1_id === App.user.user_id;
+                        const isP1 = String(m.player1_id) === String(App.user.user_id);
                         const opponent = isP1 ? m.player2_name : m.player1_name;
                         let resultText = '';
                         if (m.result === 'pending') resultText = '<span class="badge badge-purple">Pending</span>';

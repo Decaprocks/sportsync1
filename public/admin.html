@@ -106,69 +106,69 @@
         <!-- DBMS Concepts Showcase -->
         <div class="glass-card-static animate-in delay-4" style="margin-top:1.5rem;">
             <div class="section-header">
-                <h2>📚 DBMS Concepts Implemented</h2>
+                <h2>📚 NoSQL DBMS Concepts Implemented</h2>
             </div>
             <div
                 style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem;margin-top:1rem;">
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-blue);">
-                    <strong>EER Modeling</strong>
+                    <strong>Document Modeling</strong>
                     <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">User → Player / Venue Manager
-                        specialization with total, disjoint constraints</p>
+                        specialization via conditional fields in a single collection</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-green);">
-                    <strong>BCNF Normalization</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">All tables decomposed to
-                        eliminate partial & transitive dependencies</p>
+                    <strong>Embedded Documents</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Resources embedded within Venue documents,
+                        ELO history embedded in Match documents</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-purple);">
-                    <strong>Triggers</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Eligibility check, ELO update,
-                        double booking prevention</p>
+                    <strong>Application-Level Logic</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">ELO calculation, eligibility checks,
+                        and booking validation in application code</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-orange);">
-                    <strong>Stored Procedures</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Update_ELO, Book_Resource with
-                        transaction control</p>
+                    <strong>Aggregation Pipeline</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">MongoDB aggregation for revenue stats,
+                        leaderboard rankings, and analytics</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-cyan);">
-                    <strong>Transactions & ACID</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">START TRANSACTION, COMMIT,
-                        ROLLBACK, SELECT FOR UPDATE</p>
+                    <strong>Denormalization</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Strategic data duplication in bookings
+                        and matches for fast reads without joins</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-pink);">
                     <strong>Concurrency Control</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Row-level locking prevents race
-                        conditions in bookings</p>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Application-level overlap detection
+                        prevents double booking of resources</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid var(--accent-red);">
-                    <strong>Indexing (B-Tree)</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Composite indexes on
-                        booking_date, player_location, skill_rating</p>
+                    <strong>Indexing</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">MongoDB compound indexes on
+                        booking_date, skill_rating, sport_type, email</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid #a855f7;">
-                    <strong>Views</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Leaderboard, recent matches,
-                        venue availability, player summary</p>
+                    <strong>Schema Validation</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Mongoose schemas with type checking,
+                        enums, min/max, required fields, and virtuals</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid #0ea5e9;">
-                    <strong>Hybrid SQL–NoSQL</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">JSON document storage for
-                        unstructured reviews & feedback</p>
+                    <strong>MongoDB Atlas Cloud</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">Cloud-hosted NoSQL database with
+                        automatic scaling and built-in replication</p>
                 </div>
                 <div
                     style="padding:1rem;background:var(--bg-glass);border-radius:var(--radius-sm);border-left:3px solid #14b8a6;">
-                    <strong>Constraints</strong>
-                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">PK, FK (CASCADE/RESTRICT),
-                        UNIQUE, CHECK, NOT NULL enforced</p>
+                    <strong>References & Population</strong>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">ObjectId references between collections
+                        with Mongoose populate for joins</p>
                 </div>
             </div>
         </div>
@@ -223,7 +223,7 @@
                   <td style="text-transform:capitalize;">${u.sport_preference || '-'}</td>
                   <td>${u.location || '-'}</td>
                   <td>${App.formatDate(u.created_at)}</td>
-                  <td>${u.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${u.user_id})">Delete</button>` : '-'}</td>
+                  <td>${u.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.user_id}')">Delete</button>` : '-'}</td>
                 </tr>`).join('')}
               </tbody>
             </table>

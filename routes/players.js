@@ -1,42 +1,52 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const User = require('../models/User');
+const Match = require('../models/Match');
 
 // GET /api/players - List all players with optional filters
 router.get('/', async (req, res) => {
     try {
         const { sport, location, min_rating, max_rating } = req.query;
-        let query = `
-      SELECT p.player_id, u.name, u.email, p.skill_rating, p.location,
-             p.sport_preference, p.wins, p.losses, p.draws, p.age, p.gender,
-             (p.wins + p.losses + p.draws) AS total_matches
-      FROM players p
-      JOIN users u ON p.player_id = u.user_id
-      WHERE 1=1
-    `;
-        const params = [];
+        const filter = { role: 'player' };
 
         if (sport && sport !== 'all') {
-            query += ' AND (p.sport_preference = ? OR p.sport_preference = ?)';
-            params.push(sport, 'general');
+            filter.$or = [
+                { sport_preference: sport },
+                { sport_preference: 'general' }
+            ];
         }
         if (location) {
-            query += ' AND p.location LIKE ?';
-            params.push(`%${location}%`);
+            filter.location = { $regex: location, $options: 'i' };
         }
         if (min_rating) {
-            query += ' AND p.skill_rating >= ?';
-            params.push(parseInt(min_rating));
+            filter.skill_rating = { ...filter.skill_rating, $gte: parseInt(min_rating) };
         }
         if (max_rating) {
-            query += ' AND p.skill_rating <= ?';
-            params.push(parseInt(max_rating));
+            filter.skill_rating = { ...filter.skill_rating, $lte: parseInt(max_rating) };
         }
 
-        query += ' ORDER BY p.skill_rating DESC';
+        const players = await User.find(filter)
+            .select('name email skill_rating location sport_preference wins losses draws age gender')
+            .sort({ skill_rating: -1 })
+            .lean();
 
-        const [players] = await db.query(query, params);
-        res.json(players);
+        // Add computed fields
+        const result = players.map(p => ({
+            player_id: p._id,
+            name: p.name,
+            email: p.email,
+            skill_rating: p.skill_rating,
+            location: p.location,
+            sport_preference: p.sport_preference,
+            wins: p.wins,
+            losses: p.losses,
+            draws: p.draws,
+            age: p.age,
+            gender: p.gender,
+            total_matches: (p.wins || 0) + (p.losses || 0) + (p.draws || 0)
+        }));
+
+        res.json(result);
     } catch (err) {
         console.error('Players list error:', err);
         res.status(500).json({ error: 'Failed to fetch players' });
@@ -49,13 +59,43 @@ router.get('/nearby', async (req, res) => {
         if (!req.session.user) return res.status(401).json({ error: 'Login required' });
 
         const { sport, location } = req.query;
-        const [players] = await db.query('CALL Get_Nearby_Players(?, ?, ?)', [
-            location || null,
-            sport || 'general',
-            req.session.user.user_id
-        ]);
+        const filter = {
+            role: 'player',
+            _id: { $ne: req.session.user.user_id }
+        };
 
-        res.json(players[0] || []);
+        if (sport && sport !== 'general') {
+            filter.$or = [
+                { sport_preference: sport },
+                { sport_preference: 'general' }
+            ];
+        }
+        if (location) {
+            filter.location = { $regex: location, $options: 'i' };
+        }
+
+        const players = await User.find(filter)
+            .select('name email skill_rating location sport_preference wins losses draws age gender')
+            .sort({ skill_rating: -1 })
+            .limit(20)
+            .lean();
+
+        const result = players.map(p => ({
+            player_id: p._id,
+            name: p.name,
+            email: p.email,
+            skill_rating: p.skill_rating,
+            location: p.location,
+            sport_preference: p.sport_preference,
+            wins: p.wins,
+            losses: p.losses,
+            draws: p.draws,
+            age: p.age,
+            gender: p.gender,
+            total_matches: (p.wins || 0) + (p.losses || 0) + (p.draws || 0)
+        }));
+
+        res.json(result);
     } catch (err) {
         console.error('Nearby players error:', err);
         res.status(500).json({ error: 'Failed to find nearby players' });
@@ -65,28 +105,57 @@ router.get('/nearby', async (req, res) => {
 // GET /api/players/:id - Get player profile
 router.get('/:id', async (req, res) => {
     try {
-        const [players] = await db.query('SELECT * FROM v_player_summary WHERE player_id = ?', [req.params.id]);
-        if (players.length === 0) return res.status(404).json({ error: 'Player not found' });
+        const player = await User.findOne({ _id: req.params.id, role: 'player' })
+            .select('-password_hash')
+            .lean();
+
+        if (!player) return res.status(404).json({ error: 'Player not found' });
+
+        // Format player data like the SQL view v_player_summary
+        const playerSummary = {
+            player_id: player._id,
+            name: player.name,
+            email: player.email,
+            skill_rating: player.skill_rating,
+            location: player.location,
+            sport_preference: player.sport_preference,
+            wins: player.wins,
+            losses: player.losses,
+            draws: player.draws,
+            age: player.age,
+            gender: player.gender,
+            bio: player.bio,
+            total_matches: (player.wins || 0) + (player.losses || 0) + (player.draws || 0),
+            win_rate: ((player.wins || 0) + (player.losses || 0) + (player.draws || 0)) > 0
+                ? (((player.wins || 0) / ((player.wins || 0) + (player.losses || 0) + (player.draws || 0))) * 100).toFixed(1)
+                : 0
+        };
 
         // Get recent matches
-        const [matches] = await db.query(`
-      SELECT m.*, u1.name AS player1_name, u2.name AS player2_name, v.name AS venue_name
-      FROM matches m
-      JOIN users u1 ON m.player1_id = u1.user_id
-      JOIN users u2 ON m.player2_id = u2.user_id
-      LEFT JOIN venues v ON m.venue_id = v.venue_id
-      WHERE m.player1_id = ? OR m.player2_id = ?
-      ORDER BY m.match_date DESC
-      LIMIT 10
-    `, [req.params.id, req.params.id]);
+        const matches = await Match.find({
+            $or: [
+                { player1_id: req.params.id },
+                { player2_id: req.params.id }
+            ]
+        })
+            .sort({ match_date: -1 })
+            .limit(10)
+            .lean();
 
-        // Get rating history
-        const [history] = await db.query(
-            'SELECT * FROM match_history WHERE player_id = ? ORDER BY recorded_at DESC LIMIT 10',
-            [req.params.id]
-        );
+        // Get rating history from embedded elo_history in matches
+        const allHistory = [];
+        matches.forEach(m => {
+            if (m.elo_history) {
+                m.elo_history.forEach(h => {
+                    if (h.player_id.toString() === req.params.id) {
+                        allHistory.push(h);
+                    }
+                });
+            }
+        });
+        allHistory.sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
 
-        res.json({ player: players[0], matches, history });
+        res.json({ player: playerSummary, matches, history: allHistory.slice(0, 10) });
     } catch (err) {
         console.error('Player profile error:', err);
         res.status(500).json({ error: 'Failed to fetch player' });

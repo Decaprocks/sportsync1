@@ -1,38 +1,73 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const Booking = require('../models/Booking');
+const Venue = require('../models/Venue');
 
-// POST /api/bookings - Book a resource (uses stored procedure with transaction)
+// POST /api/bookings - Book a resource (app-level concurrency check replaces stored procedure)
 router.post('/', async (req, res) => {
     try {
         if (!req.session.user) return res.status(401).json({ error: 'Login required' });
 
-        const { resource_id, booking_date, start_time, end_time } = req.body;
+        const { resource_id, venue_id, booking_date, start_time, end_time } = req.body;
 
-        // Call the Book_Resource stored procedure (Transaction + Concurrency Control)
-        const [result] = await db.query(
-            'CALL Book_Resource(?, ?, ?, ?, ?, @booking_id, @status)',
-            [resource_id, req.session.user.user_id, booking_date, start_time, end_time]
-        );
+        // Get the venue and resource details
+        const venue = await Venue.findById(venue_id).lean();
+        if (!venue) return res.status(404).json({ error: 'Venue not found' });
 
-        const [[output]] = await db.query('SELECT @booking_id AS booking_id, @status AS status');
+        const resource = venue.resources.find(r => r._id.toString() === resource_id);
+        if (!resource) return res.status(404).json({ error: 'Resource not found' });
+        if (!resource.is_available) return res.status(400).json({ error: 'Resource is not available' });
 
-        if (output.status && output.status.startsWith('ERROR')) {
-            return res.status(409).json({ error: output.status });
+        // ── Concurrency Check (replaces Book_Resource stored procedure) ──
+        // Check for overlapping bookings on the same resource & date
+        const overlap = await Booking.findOne({
+            resource_id: resource._id,
+            booking_date: booking_date,
+            status: 'confirmed',
+            $or: [
+                { start_time: { $lt: end_time }, end_time: { $gt: start_time } }
+            ]
+        });
+
+        if (overlap) {
+            return res.status(409).json({
+                error: 'BOOKING ERROR: Time slot already booked. Please choose a different time.'
+            });
         }
+
+        // Calculate price
+        const startParts = start_time.split(':').map(Number);
+        const endParts = end_time.split(':').map(Number);
+        const hours = (endParts[0] + endParts[1] / 60) - (startParts[0] + startParts[1] / 60);
+        const total_price = Math.max(0, hours * resource.price_per_hour);
+
+        // Create booking with denormalized data
+        const booking = await Booking.create({
+            venue_id: venue._id,
+            resource_id: resource._id,
+            resource_name: resource.name,
+            sport_type: resource.sport_type,
+            resource_type: resource.type,
+            venue_name: venue.name,
+            venue_city: venue.city,
+            venue_location: venue.location,
+            player_id: req.session.user.user_id,
+            player_name: req.session.user.name,
+            booking_date,
+            start_time,
+            end_time,
+            total_price,
+            status: 'confirmed'
+        });
 
         res.json({
             success: true,
-            booking_id: output.booking_id,
-            message: output.status
+            booking_id: booking._id,
+            message: `Booking confirmed for ${resource.name} at ${venue.name}`
         });
     } catch (err) {
         console.error('Booking error:', err);
-        // Handle trigger error (double booking)
-        if (err.sqlMessage && err.sqlMessage.includes('BOOKING ERROR')) {
-            return res.status(409).json({ error: err.sqlMessage });
-        }
-        res.status(500).json({ error: 'Booking failed: ' + (err.sqlMessage || err.message) });
+        res.status(500).json({ error: 'Booking failed: ' + err.message });
     }
 });
 
@@ -41,17 +76,17 @@ router.get('/my', async (req, res) => {
     try {
         if (!req.session.user) return res.status(401).json({ error: 'Login required' });
 
-        const [bookings] = await db.query(`
-      SELECT b.*, r.name AS resource_name, r.sport_type, r.type AS resource_type,
-             v.name AS venue_name, v.city, v.location AS venue_location
-      FROM bookings b
-      JOIN resources r ON b.resource_id = r.resource_id
-      JOIN venues v ON r.venue_id = v.venue_id
-      WHERE b.player_id = ?
-      ORDER BY b.booking_date DESC, b.start_time DESC
-    `, [req.session.user.user_id]);
+        const bookings = await Booking.find({ player_id: req.session.user.user_id })
+            .sort({ booking_date: -1, start_time: -1 })
+            .lean();
 
-        res.json(bookings);
+        // Map to match expected frontend fields
+        const result = bookings.map(b => ({
+            ...b,
+            booking_id: b._id
+        }));
+
+        res.json(result);
     } catch (err) {
         console.error('My bookings error:', err);
         res.status(500).json({ error: 'Failed to fetch bookings' });
@@ -63,12 +98,13 @@ router.delete('/:id', async (req, res) => {
     try {
         if (!req.session.user) return res.status(401).json({ error: 'Login required' });
 
-        const [result] = await db.query(
-            'UPDATE bookings SET status = ? WHERE booking_id = ? AND player_id = ?',
-            ['cancelled', req.params.id, req.session.user.user_id]
+        const result = await Booking.findOneAndUpdate(
+            { _id: req.params.id, player_id: req.session.user.user_id },
+            { status: 'cancelled' },
+            { new: true }
         );
 
-        if (result.affectedRows === 0) {
+        if (!result) {
             return res.status(404).json({ error: 'Booking not found or unauthorized' });
         }
 
@@ -82,16 +118,16 @@ router.delete('/:id', async (req, res) => {
 // GET /api/bookings/venue/:venueId - Get bookings for a venue (for managers)
 router.get('/venue/:venueId', async (req, res) => {
     try {
-        const [bookings] = await db.query(`
-      SELECT b.*, r.name AS resource_name, r.sport_type, u.name AS player_name
-      FROM bookings b
-      JOIN resources r ON b.resource_id = r.resource_id
-      JOIN users u ON b.player_id = u.user_id
-      WHERE r.venue_id = ?
-      ORDER BY b.booking_date DESC, b.start_time DESC
-    `, [req.params.venueId]);
+        const bookings = await Booking.find({ venue_id: req.params.venueId })
+            .sort({ booking_date: -1, start_time: -1 })
+            .lean();
 
-        res.json(bookings);
+        const result = bookings.map(b => ({
+            ...b,
+            booking_id: b._id
+        }));
+
+        res.json(result);
     } catch (err) {
         console.error('Venue bookings error:', err);
         res.status(500).json({ error: 'Failed to fetch bookings' });

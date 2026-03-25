@@ -123,7 +123,7 @@
                 document.getElementById('reviews-list').innerHTML = reviews.map(r => {
                     const initials = (r.user_name || 'U').split(' ').map(n => n[0]).join('').toUpperCase();
                     const date = new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                    const canDelete = App.user && r.user_id === App.user.user_id;
+                    const canDelete = App.user && String(r.user_id) === String(App.user.user_id);
 
                     return `<div class="review-card">
             <div class="review-header">

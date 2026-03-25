@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db');
+const User = require('../models/User');
+const Venue = require('../models/Venue');
+const Match = require('../models/Match');
+const Booking = require('../models/Booking');
 
 // Middleware: Admin check
 function requireAdmin(req, res, next) {
@@ -10,25 +13,31 @@ function requireAdmin(req, res, next) {
     next();
 }
 
-// GET /api/admin/stats - Dashboard statistics
+// GET /api/admin/stats - Dashboard statistics (replaces multiple COUNT queries)
 router.get('/stats', requireAdmin, async (req, res) => {
     try {
-        const [[users]] = await db.query('SELECT COUNT(*) AS total FROM users');
-        const [[players]] = await db.query('SELECT COUNT(*) AS total FROM players');
-        const [[venues]] = await db.query('SELECT COUNT(*) AS total FROM venues');
-        const [[matches]] = await db.query('SELECT COUNT(*) AS total FROM matches');
-        const [[bookings]] = await db.query('SELECT COUNT(*) AS total FROM bookings WHERE status = ?', ['confirmed']);
-        const [[revenue]] = await db.query('SELECT COALESCE(SUM(total_price), 0) AS total FROM bookings WHERE status = ?', ['confirmed']);
-        const [[activeMatches]] = await db.query('SELECT COUNT(*) AS total FROM matches WHERE status IN (?, ?)', ['scheduled', 'in_progress']);
+        const [totalUsers, totalPlayers, totalVenues, totalMatches, activeBookings, activeMatches] = await Promise.all([
+            User.countDocuments(),
+            User.countDocuments({ role: 'player' }),
+            Venue.countDocuments(),
+            Match.countDocuments(),
+            Booking.countDocuments({ status: 'confirmed' }),
+            Match.countDocuments({ status: { $in: ['scheduled', 'in_progress'] } })
+        ]);
+
+        const revenueAgg = await Booking.aggregate([
+            { $match: { status: 'confirmed' } },
+            { $group: { _id: null, total: { $sum: '$total_price' } } }
+        ]);
 
         res.json({
-            total_users: users.total,
-            total_players: players.total,
-            total_venues: venues.total,
-            total_matches: matches.total,
-            active_bookings: bookings.total,
-            total_revenue: revenue.total,
-            active_matches: activeMatches.total
+            total_users: totalUsers,
+            total_players: totalPlayers,
+            total_venues: totalVenues,
+            total_matches: totalMatches,
+            active_bookings: activeBookings,
+            total_revenue: revenueAgg.length > 0 ? revenueAgg[0].total : 0,
+            active_matches: activeMatches
         });
     } catch (err) {
         console.error('Admin stats error:', err);
@@ -39,14 +48,26 @@ router.get('/stats', requireAdmin, async (req, res) => {
 // GET /api/admin/users - List all users
 router.get('/users', requireAdmin, async (req, res) => {
     try {
-        const [users] = await db.query(`
-      SELECT u.user_id, u.name, u.email, u.role, u.phone, u.created_at,
-             p.skill_rating, p.wins, p.losses, p.sport_preference, p.location
-      FROM users u
-      LEFT JOIN players p ON u.user_id = p.player_id
-      ORDER BY u.created_at DESC
-    `);
-        res.json(users);
+        const users = await User.find()
+            .select('-password_hash')
+            .sort({ created_at: -1 })
+            .lean();
+
+        const result = users.map(u => ({
+            user_id: u._id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            phone: u.phone,
+            created_at: u.created_at,
+            skill_rating: u.skill_rating,
+            wins: u.wins,
+            losses: u.losses,
+            sport_preference: u.sport_preference,
+            location: u.location
+        }));
+
+        res.json(result);
     } catch (err) {
         console.error('Admin users error:', err);
         res.status(500).json({ error: 'Failed to fetch users' });
@@ -56,10 +77,11 @@ router.get('/users', requireAdmin, async (req, res) => {
 // DELETE /api/admin/users/:id - Delete a user
 router.delete('/users/:id', requireAdmin, async (req, res) => {
     try {
-        const [result] = await db.query('DELETE FROM users WHERE user_id = ? AND role != ?', [req.params.id, 'admin']);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'User not found or cannot delete admin' });
-        }
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete admin' });
+
+        await User.deleteOne({ _id: req.params.id });
         res.json({ success: true, message: 'User deleted' });
     } catch (err) {
         console.error('Delete user error:', err);
@@ -70,16 +92,17 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 // GET /api/admin/matches - All matches for oversight
 router.get('/matches', requireAdmin, async (req, res) => {
     try {
-        const [matches] = await db.query(`
-      SELECT m.*, u1.name AS player1_name, u2.name AS player2_name, v.name AS venue_name
-      FROM matches m
-      JOIN users u1 ON m.player1_id = u1.user_id
-      JOIN users u2 ON m.player2_id = u2.user_id
-      LEFT JOIN venues v ON m.venue_id = v.venue_id
-      ORDER BY m.match_date DESC
-      LIMIT 100
-    `);
-        res.json(matches);
+        const matches = await Match.find()
+            .sort({ match_date: -1 })
+            .limit(100)
+            .lean();
+
+        const result = matches.map(m => ({
+            ...m,
+            match_id: m._id
+        }));
+
+        res.json(result);
     } catch (err) {
         console.error('Admin matches error:', err);
         res.status(500).json({ error: 'Failed to fetch matches' });

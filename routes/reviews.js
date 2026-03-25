@@ -1,118 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-
-const REVIEWS_FILE = path.join(__dirname, '..', 'data', 'reviews.json');
-
-// Helper: Read reviews from JSON (NoSQL simulation)
-function readReviews() {
-    try {
-        const data = fs.readFileSync(REVIEWS_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch (err) {
-        return [];
-    }
-}
-
-// Helper: Write reviews to JSON
-function writeReviews(reviews) {
-    fs.writeFileSync(REVIEWS_FILE, JSON.stringify(reviews, null, 2));
-}
-
-// POST /api/reviews - Save a new review (NoSQL / JSON storage)
-router.post('/', (req, res) => {
-    try {
-        if (!req.session.user) return res.status(401).json({ error: 'Login required' });
-
-        const { venue_id, text, rating, venue_name } = req.body;
-
-        const review = {
-            review_id: uuidv4(),
-            user_id: req.session.user.user_id,
-            user_name: req.session.user.name,
-            venue_id: parseInt(venue_id),
-            venue_name: venue_name || '',
-            text: text,
-            rating: parseFloat(rating),
-            date: new Date().toISOString(),
-            tags: extractTags(text)
-        };
-
-        const reviews = readReviews();
-        reviews.push(review);
-        writeReviews(reviews);
-
-        res.json({ success: true, review });
-    } catch (err) {
-        console.error('Create review error:', err);
-        res.status(500).json({ error: 'Failed to save review' });
-    }
-});
-
-// GET /api/reviews - Get all reviews
-router.get('/', (req, res) => {
-    try {
-        const reviews = readReviews();
-        const { venue_id, min_rating } = req.query;
-
-        let filtered = reviews;
-        if (venue_id) {
-            filtered = filtered.filter(r => r.venue_id === parseInt(venue_id));
-        }
-        if (min_rating) {
-            filtered = filtered.filter(r => r.rating >= parseFloat(min_rating));
-        }
-
-        // Sort by most recent
-        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        res.json(filtered);
-    } catch (err) {
-        console.error('Get reviews error:', err);
-        res.status(500).json({ error: 'Failed to fetch reviews' });
-    }
-});
-
-// GET /api/reviews/venue/:venueId - Get reviews for a specific venue
-router.get('/venue/:venueId', (req, res) => {
-    try {
-        const reviews = readReviews();
-        const venueReviews = reviews
-            .filter(r => r.venue_id === parseInt(req.params.venueId))
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        const avgRating = venueReviews.length > 0
-            ? (venueReviews.reduce((sum, r) => sum + r.rating, 0) / venueReviews.length).toFixed(1)
-            : 0;
-
-        res.json({ reviews: venueReviews, average_rating: parseFloat(avgRating), total: venueReviews.length });
-    } catch (err) {
-        console.error('Venue reviews error:', err);
-        res.status(500).json({ error: 'Failed to fetch reviews' });
-    }
-});
-
-// DELETE /api/reviews/:id - Delete a review
-router.delete('/:id', (req, res) => {
-    try {
-        if (!req.session.user) return res.status(401).json({ error: 'Login required' });
-
-        let reviews = readReviews();
-        const idx = reviews.findIndex(r => r.review_id === req.params.id && r.user_id === req.session.user.user_id);
-
-        if (idx === -1) return res.status(404).json({ error: 'Review not found or unauthorized' });
-
-        reviews.splice(idx, 1);
-        writeReviews(reviews);
-
-        res.json({ success: true, message: 'Review deleted' });
-    } catch (err) {
-        console.error('Delete review error:', err);
-        res.status(500).json({ error: 'Failed to delete review' });
-    }
-});
+const Review = require('../models/Review');
 
 // Helper: Extract hashtag-style tags from review text
 function extractTags(text) {
@@ -125,5 +13,102 @@ function extractTags(text) {
     });
     return tags;
 }
+
+// POST /api/reviews - Save a new review (now in MongoDB instead of JSON file)
+router.post('/', async (req, res) => {
+    try {
+        if (!req.session.user) return res.status(401).json({ error: 'Login required' });
+
+        const { venue_id, text, rating, venue_name } = req.body;
+
+        const review = await Review.create({
+            user_id: req.session.user.user_id,
+            user_name: req.session.user.name,
+            venue_id,
+            venue_name: venue_name || '',
+            text,
+            rating: parseFloat(rating),
+            tags: extractTags(text)
+        });
+
+        res.json({ success: true, review });
+    } catch (err) {
+        console.error('Create review error:', err);
+        res.status(500).json({ error: 'Failed to save review' });
+    }
+});
+
+// GET /api/reviews - Get all reviews
+router.get('/', async (req, res) => {
+    try {
+        const { venue_id, min_rating } = req.query;
+        const filter = {};
+
+        if (venue_id) {
+            filter.venue_id = venue_id;
+        }
+        if (min_rating) {
+            filter.rating = { $gte: parseFloat(min_rating) };
+        }
+
+        const reviews = await Review.find(filter)
+            .sort({ date: -1 })
+            .lean();
+
+        // Add review_id for frontend compatibility
+        const result = reviews.map(r => ({
+            ...r,
+            review_id: r._id
+        }));
+
+        res.json(result);
+    } catch (err) {
+        console.error('Get reviews error:', err);
+        res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+});
+
+// GET /api/reviews/venue/:venueId - Get reviews for a specific venue
+router.get('/venue/:venueId', async (req, res) => {
+    try {
+        const venueReviews = await Review.find({ venue_id: req.params.venueId })
+            .sort({ date: -1 })
+            .lean();
+
+        const avgRating = venueReviews.length > 0
+            ? (venueReviews.reduce((sum, r) => sum + r.rating, 0) / venueReviews.length).toFixed(1)
+            : 0;
+
+        const result = venueReviews.map(r => ({ ...r, review_id: r._id }));
+
+        res.json({
+            reviews: result,
+            average_rating: parseFloat(avgRating),
+            total: venueReviews.length
+        });
+    } catch (err) {
+        console.error('Venue reviews error:', err);
+        res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+});
+
+// DELETE /api/reviews/:id - Delete a review
+router.delete('/:id', async (req, res) => {
+    try {
+        if (!req.session.user) return res.status(401).json({ error: 'Login required' });
+
+        const result = await Review.findOneAndDelete({
+            _id: req.params.id,
+            user_id: req.session.user.user_id
+        });
+
+        if (!result) return res.status(404).json({ error: 'Review not found or unauthorized' });
+
+        res.json({ success: true, message: 'Review deleted' });
+    } catch (err) {
+        console.error('Delete review error:', err);
+        res.status(500).json({ error: 'Failed to delete review' });
+    }
+});
 
 module.exports = router;

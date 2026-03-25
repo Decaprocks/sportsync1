@@ -130,7 +130,7 @@
               <div class="player-stat"><div class="value">${p.age || '-'}</div><div class="label">Age</div></div>
               <div class="player-stat"><div class="value">${p.gender === 'male' ? '♂️' : p.gender === 'female' ? '♀️' : '⚧️'}</div><div class="label">Gender</div></div>
             </div>
-            <button class="btn btn-primary btn-sm btn-block" onclick="openChallenge(${p.player_id}, '${p.name}', ${p.skill_rating}, '${p.sport_preference}')">
+            <button class="btn btn-primary btn-sm btn-block" onclick="openChallenge('${p.player_id}', '${p.name}', ${p.skill_rating}, '${p.sport_preference}')">
               ⚔️ Challenge
             </button>
           </div>`;
@@ -199,7 +199,7 @@
               <thead><tr><th>Date</th><th>Opponent</th><th>Sport</th><th>Score</th><th>Result</th><th>Status</th><th>Action</th></tr></thead>
               <tbody>
                 ${matches.map(m => {
-                    const isP1 = m.player1_id === App.user.user_id;
+                    const isP1 = String(m.player1_id) === String(App.user.user_id);
                     const opponent = isP1 ? m.player2_name : m.player1_name;
                     let resultBadge = '';
                     if (m.result === 'pending') resultBadge = '<span class="badge badge-purple">Pending</span>';
@@ -208,7 +208,7 @@
                     else resultBadge = '<span class="badge badge-red">Lost</span>';
 
                     const actionBtn = m.result === 'pending'
-                        ? `<button class="btn btn-sm btn-success" onclick="recordResult(${m.match_id}, ${isP1})">Record Result</button>`
+                        ? `<button class="btn btn-sm btn-success" onclick="recordResult('${m.match_id}', ${isP1})">Record Result</button>`
                         : '-';
 
                     return `<tr>
@@ -247,7 +247,7 @@
                 });
 
                 if (data.elo_changes && data.elo_changes.length > 0) {
-                    const myChange = data.elo_changes.find(c => c.player_id === App.user.user_id);
+                    const myChange = data.elo_changes.find(c => String(c.player_id) === String(App.user.user_id));
                     if (myChange) {
                         const sign = myChange.rating_change > 0 ? '+' : '';
                         App.toast(`Result recorded! ELO: ${myChange.new_rating} (${sign}${myChange.rating_change})`, 'success');

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../config/db');
+const User = require('../models/User');
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
@@ -9,38 +9,48 @@ router.post('/register', async (req, res) => {
         const { name, email, password, role, phone, age, gender, location, sport_preference, license_no, organization } = req.body;
 
         // Check if email already exists
-        const [existing] = await db.query('SELECT user_id FROM users WHERE email = ?', [email]);
-        if (existing.length > 0) {
+        const existing = await User.findOne({ email });
+        if (existing) {
             return res.status(400).json({ error: 'Email already registered' });
         }
 
         // Hash password
         const password_hash = await bcrypt.hash(password, 10);
 
-        // Insert into users (superclass)
-        const [result] = await db.query(
-            'INSERT INTO users (name, email, password_hash, role, phone) VALUES (?, ?, ?, ?, ?)',
-            [name, email, password_hash, role || 'player', phone || null]
-        );
+        // Build user document based on role
+        const userData = {
+            name,
+            email,
+            password_hash,
+            role: role || 'player',
+            phone: phone || null
+        };
 
-        const userId = result.insertId;
-
-        // Insert into subclass based on role
+        // Add role-specific fields
         if (role === 'venue_manager') {
-            await db.query(
-                'INSERT INTO venue_managers (manager_id, license_no, organization) VALUES (?, ?, ?)',
-                [userId, license_no || null, organization || null]
-            );
+            userData.license_no = license_no || null;
+            userData.organization = organization || null;
         } else {
             // Default: player
-            await db.query(
-                'INSERT INTO players (player_id, age, gender, skill_rating, location, sport_preference) VALUES (?, ?, ?, 1200, ?, ?)',
-                [userId, age || 18, gender || 'other', location || '', sport_preference || 'general']
-            );
+            userData.age = age || 18;
+            userData.gender = gender || 'other';
+            userData.skill_rating = 1200;
+            userData.location = location || '';
+            userData.sport_preference = sport_preference || 'general';
+            userData.wins = 0;
+            userData.losses = 0;
+            userData.draws = 0;
         }
 
+        const user = await User.create(userData);
+
         // Set session
-        req.session.user = { user_id: userId, name, email, role: role || 'player' };
+        req.session.user = {
+            user_id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        };
 
         res.json({ success: true, user: req.session.user });
     } catch (err) {
@@ -54,12 +64,11 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (users.length === 0) {
+        const user = await User.findOne({ email });
+        if (!user) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        const user = users[0];
         const match = await bcrypt.compare(password, user.password_hash);
         if (!match) {
             return res.status(401).json({ error: 'Invalid email or password' });
@@ -67,7 +76,7 @@ router.post('/login', async (req, res) => {
 
         // Set session
         req.session.user = {
-            user_id: user.user_id,
+            user_id: user._id,
             name: user.name,
             email: user.email,
             role: user.role

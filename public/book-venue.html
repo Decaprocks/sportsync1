@@ -87,6 +87,7 @@
     <script>
         let currentResource = null;
         let selectedSlot = null;
+        let currentVenueId = null;
 
         (async () => {
             await App.init();
@@ -122,7 +123,7 @@
                 <span class="venue-meta-item">✅ ${v.available_resources} available</span>
               </div>
               <div style="margin-top:1rem;">
-                <button class="btn btn-primary btn-sm" onclick="viewResources(${v.venue_id}, '${v.name}')">View Resources & Book</button>
+                <button class="btn btn-primary btn-sm" onclick="viewResources('${v.venue_id}', '${v.name}')">View Resources & Book</button>
               </div>
             </div>
           </div>
@@ -133,6 +134,7 @@
         }
 
         async function viewResources(venueId, venueName) {
+            currentVenueId = venueId;
             try {
                 const resources = await App.api(`/api/venues/${venueId}/resources`);
                 if (resources.length === 0) {
@@ -154,7 +156,7 @@
                     <td>${r.sport_type}</td>
                     <td>${r.capacity} players</td>
                     <td style="color:var(--accent-green);font-weight:600;">₹${r.price_per_hour}</td>
-                    <td><button class="btn btn-primary btn-sm" onclick="openBooking(${r.resource_id}, '${r.name}', '${r.sport_type}', ${r.price_per_hour})">Book</button></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="openBooking('${r.resource_id}', '${r.name}', '${r.sport_type}', ${r.price_per_hour})">Book</button></td>
                   </tr>`).join('')}
                 </tbody>
               </table>
@@ -251,6 +253,7 @@
                     method: 'POST',
                     body: JSON.stringify({
                         resource_id: document.getElementById('booking-resource-id').value,
+                        venue_id: currentVenueId,
                         booking_date: document.getElementById('booking-date').value,
                         start_time: document.getElementById('booking-start').value,
                         end_time: document.getElementById('booking-end').value
