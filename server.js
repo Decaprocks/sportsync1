@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const bodyParser = require('body-parser');
 const path = require('path');
 const { connectDB } = require('./config/db');
@@ -21,6 +22,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'sportsync_secret',
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/sportsync',
+    collectionName: 'sessions'
+  }),
   cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
 }));
 
@@ -56,9 +61,15 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n🏟️  SportSync Server running at http://localhost:${PORT}`);
-  console.log(`   Dashboard:    http://localhost:${PORT}/dashboard`);
-  console.log(`   Leaderboard:  http://localhost:${PORT}/leaderboard`);
-  console.log(`   Admin Panel:  http://localhost:${PORT}/admin\n`);
-});
+// Only listen if not running on Vercel
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`\n🏟️  SportSync Server running at http://localhost:${PORT}`);
+    console.log(`   Dashboard:    http://localhost:${PORT}/dashboard`);
+    console.log(`   Leaderboard:  http://localhost:${PORT}/leaderboard`);
+    console.log(`   Admin Panel:  http://localhost:${PORT}/admin\n`);
+  });
+}
+
+// Export the app for Vercel serverless functions
+module.exports = app;
