@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
-const MongoStore = require('connect-mongo');
+const MongoStore = require('connect-mongo').MongoStore || require('connect-mongo');
 const bodyParser = require('body-parser');
 const path = require('path');
 const { connectDB } = require('./config/db');
